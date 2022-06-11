@@ -58,6 +58,8 @@
 // finish         // Step out of function
 // i b   // list breakpoints
 
+// cd /run/media/magnus/myPassport/
+// gdb hashbert
 
 // Todo: dry run option
 
@@ -70,6 +72,7 @@
 #define ANSI_CURSOR_UP(n)       "\033[" #n "A"
 #define ANSI_CURSOR_DOWN(n)     "\033[" #n "B"
 #define ANSI_CLEAR_RIGHT        "\033[K"
+#define ANSI_CURSORDN           "\033[B"
 
 #define MAKESPACE_N_SAVE "\n\n" ANSI_CURSOR_UP(2) ANSI_CURSOR_SAVE
 #define MY_RESET ANSI_CURSOR_RESTORE ANSI_CLEAR_BELOW
@@ -77,6 +80,37 @@
 //const char* MAKESPACE_N_SAVE={"\n\n" ANSI_CURSOR_UP(2) ANSI_CURSOR_SAVE};
 
 
+template<typename ... Args>
+char* mysprintf(const char* fmt, Args ... args){  // mysprintf: like snprintf but with fewer arguments.
+  const int L_STRTMP=300;
+  static char strTmp[L_STRTMP];
+  auto intL=snprintf(strTmp, L_STRTMP, fmt, args ...);
+  return strTmp;
+}
+
+
+
+
+// struct returnType_myRealPath{
+//   char* strErr;
+//   char* buf;
+// };
+// returnType_myRealPath myRealPath(const char* str){
+//     char buf[PATH_MAX]; /* PATH_MAX incudes the \0 so +1 is not required */
+//     char *res = realpath(str, buf);
+//     if(res) {  return {NULL, buf};  }
+//     else{ return {strerror(errno), buf}; }
+// }
+struct returnType_myRealPath{
+  std::string strErr;
+  std::string buf;
+};
+returnType_myRealPath myRealPath(const std::string str){
+    char buf[PATH_MAX]; /* PATH_MAX incudes the \0 so +1 is not required */
+    char *res = realpath(str.c_str(), buf);
+    if(res) {  return {"", buf};  }
+    else{ return {strerror(errno), buf}; }
+}
 
 #define L_BUFFER 1024
 //void calcHashOfFile(std::ifstream& fin, char out[33]) {
@@ -128,8 +162,16 @@ ANSI_FONT_BOLD "untouched" ANSI_FONT_CLEAR ": %u, "
 ANSI_FONT_BOLD "new" ANSI_FONT_CLEAR ": %u, " 
 ANSI_FONT_BOLD "deleted" ANSI_FONT_CLEAR ": %u)\n";
 
+struct RowTreeT{
+  unsigned int intTime;
+  uint64_t intSize;
+  std::string strName;
+};
+
 //void writeFolderContentToHierarchyFile(FILE *fpt, const std::string strDir){  // Write folder content (that is files only) of strDir. For folders in strDir recursive calls are made.
-void writeFolderContentToHierarchyFile(std::fstream& fpt, const std::string strDir){  // Write folder content (that is files only) of strDir. For folders in strDir recursive calls are made.
+//void writeFolderContentToHierarchyFile(std::fstream& fpt, const std::string strDir){  // Write folder content (that is files only) of strDir. For folders in strDir recursive calls are made.
+//void writeFolderContentToHierarchyFile(std::fstream& fpt, const std::string fsDir, const std::string flDir){  // Write folder content (that is files only) of strDir. For folders in strDir recursive calls are made.
+void parseTree(std::vector<RowTreeT>& arrTree, const std::string fsDir, const std::string flDir){  // Write folder content (that is files only) of strDir. For folders in strDir recursive calls are made.
   DIR *dir;
   struct dirent *entry;
   struct EntryT {
@@ -143,7 +185,8 @@ void writeFolderContentToHierarchyFile(std::fstream& fpt, const std::string strD
   
   std::vector<EntryT> vecEntry;
      
-  if (!(dir = opendir(strDir.c_str())))        return;
+  //if (!(dir = opendir(strDir.c_str())))        return;
+  if (!(dir = opendir(fsDir.c_str())))        return;
   
   while(1) {
     if (!(entry = readdir(dir))) break;
@@ -156,20 +199,30 @@ void writeFolderContentToHierarchyFile(std::fstream& fpt, const std::string strD
     EntryT ent=*it;
 
     //strPath=strDir; 
-    if(strDir==".") strPath=ent.str;
-    else {strPath=strDir; strPath.append("/").append(ent.str); }
+    // if(strDir==".") strPath=ent.str;
+    // else {strPath=strDir; strPath.append("/").append(ent.str); }
+    std::string flPath;
+    if(flDir.size()){ flPath=flDir+'/'+ent.str;} else{ flPath=ent.str;}
+    auto fsPath=fsDir+'/'+ent.str;
     if (ent.boDir) {
       //if(strcmp(ent.str.c_str(), ".") == 0 || strcmp(ent.str.c_str(), "..") == 0)     continue;
       if(ent.str.compare(".") == 0 || ent.str.compare("..") == 0)     continue;
-      writeFolderContentToHierarchyFile(fpt, strPath);
+      //writeFolderContentToHierarchyFile(fpt, fsPath, flPath);
+      parseTree(arrTree, fsPath, flPath);
     }
     else {
       struct stat st;
-      if(stat(strPath.c_str(), &st) != 0) perror(strPath.c_str());
+      //if(stat(strPath.c_str(), &st) != 0) perror(strPath.c_str());
+      if(stat(fsPath.c_str(), &st) != 0) perror(fsPath.c_str());
       //fprintf(fpt, "%u %u %s\n", st.st_mtim.tv_sec, st.st_size, strPath.c_str());
-      fpt<<st.st_mtim.tv_sec
-      <<' '<<st.st_size
-      <<' '<<strPath.c_str()<<'\n';
+      // fpt<<st.st_mtim.tv_sec
+      // <<' '<<st.st_size
+      // <<' '<<flPath.c_str()<<'\n';
+      //RowTreeT rowTree={st.st_mtim.tv_sec, st.st_size, flPath.c_str()};
+      //RowTreeT rowTree={.intTime=st.st_mtim.tv_sec, .intSize=st.st_size, .strName=flPath.c_str()};
+      RowTreeT rowTree;
+      rowTree.intTime=st.st_mtim.tv_sec; rowTree.intSize=st.st_size, rowTree.strName=flPath.c_str();
+      arrTree.push_back(rowTree);
       nFile++;
       if(nFile%100==0){
         printf(MY_RESET);
@@ -180,44 +233,99 @@ void writeFolderContentToHierarchyFile(std::fstream& fpt, const std::string strD
   } 
   closedir(dir);
 }
+struct RowHashFileT{
+  std::string strHash;
+  unsigned int intTime;
+  uint64_t intSize;
+  std::string strName;
+};
+bool funSortByStrName (std::string a, std::string b) { return (a<b); }
+std::vector<RowHashFileT> parseHashcodeFile(std::fstream& fptOld){
+  std::vector<RowHashFileT> arr;
+  while(1) {
+    std::string strHash;
+    unsigned int intTime;
+    uint64_t intSize;
+    std::string strName;
+    RowHashFileT row;
+
+    fptOld>>row.strHash>>row.intTime>>row.intSize>>std::ws;
+    std::getline(fptOld, row.strName);
+    if(fptOld.fail()) 
+      break;
+    arr.push_back(row);
+  }
+  return arr;
+}
 
 //int mergeOldNHierarchy(FILE *fptNew, FILE *fptOld, FILE *fptHierarchy, int boRealRun){  // Merge fptOld and fptHierarchy to fptNew and recalculate hashcode 
-int mergeOldNHierarchy(std::ofstream& fptNew, std::ifstream& fptOld, std::fstream& fptHierarchy, int boRealRun){  // Merge fptOld and fptHierarchy to fptNew and recalculate hashcode for new files and when file-mod-time/size is different
+//int mergeOldNHierarchy(std::ofstream& fptNew, std::ifstream& fptOld, std::fstream& fptHierarchy, const std::string fsDir, int boRealRun){  // Merge fptOld and fptHierarchy to fptNew and recalculate hashcode for new files and when file-mod-time/size is different
+int mergeOldNHierarchy(std::ofstream& fptNew, std::ifstream& fptOld, std::vector<RowTreeT> arrTree, const std::string fsDir, int boRealRun){  // Merge fptOld and fptHierarchy to fptNew and recalculate hashcode for new files and when file-mod-time/size is different
   //char strHashOld[33], strHashCalc[33];
   //const char *pstrHash;
   std::string *pstrHash;
   char boOldEndReached=0, boHierarchyEndReached=0;
   char boMakeReadOld=1, boMakeReadHierarchy=1;
   unsigned int nRow=0, nUntouched=0, nTouched=0, nDelete=0, nNew=0;
-  unsigned int intTimeOld, intTimeHierarchy;
-  uint64_t intSizeOld, intSizeHierarchy;
+  unsigned int intTimeHierarchy;
+  uint64_t intSizeHierarchy;
   //char strFileOld[LENFILENAME], strFileHierarchy[LENFILENAME];
 
   std::string strHashCalc(32,0);
-  std::string strHashOld;
-  std::string strFileOld, strFileHierarchy;
+  std::string strFileHierarchy;
 
   //FILE *fptLog = fopen("log.txt", "w");
+  std::vector<RowHashFileT> RowOld=parseHashcodeFile((std::fstream&) fptOld);
+  //std::sort(std::begin(RowOld), std::end(RowOld), funSortByStrName);
+  std:sort( RowOld.begin(), RowOld.end(), [ ]( const auto& lhs, const auto& rhs )
+    {
+      return lhs.strName < rhs.strName;
+    });
+    
+  std::sort( arrTree.begin(), arrTree.end(), [ ]( const auto& lhs, const auto& rhs )
+    {
+      return lhs.strName < rhs.strName;
+    });
+  int iHierarchy=0, iOld=0;
     
   enum Status { DONE, DELETED, UNTOUCHED, TOUCHED, NEWFILE };
   enum Status myStatus;
+  unsigned int intTimeOld;
+  uint64_t intSizeOld;
+  std::string strHashOld;
+  std::string strFileOld;
   while(1) {
     int intCmp;
     if(boMakeReadOld) {
       boMakeReadOld=0; 
       //if(fscanf(fptOld, "%32s %u %u %1023[^\n]\n", strHashOld, &intTimeOld, &intSizeOld, strFileOld)!=4) boOldEndReached=1;
 
-      fptOld>>strHashOld>>intTimeOld>>intSizeOld>>std::ws;
-      std::getline(fptOld, strFileOld);
-      boOldEndReached=fptOld.fail();
+      // fptOld>>strHashOld>>intTimeOld>>intSizeOld>>std::ws;
+      // std::getline(fptOld, strFileOld);
+      // boOldEndReached=fptOld.fail();
+      boOldEndReached=iOld>=RowOld.size();
+      if(!boOldEndReached){
+        //const auto [ strHashOld, intTimeOld, intSizeOld, strFileOld]=RowOld[iOld];
+        RowHashFileT r=RowOld[iOld];
+        strHashOld=r.strHash; intTimeOld=r.intTime; intSizeOld=r.intSize; strFileOld=r.strName;
+        iOld++;
+      }
     }
     if(boMakeReadHierarchy) {
       boMakeReadHierarchy=0;
       // if(fscanf(fptHierarchy, "%u %u %1023[^\n]\n", &intTimeHierarchy, &intSizeHierarchy, strFileHierarchy)!=3) boHierarchyEndReached=1;
 
-      fptHierarchy>>intTimeHierarchy>>intSizeHierarchy>>std::ws;
-      std::getline(fptHierarchy, strFileHierarchy);
-      boHierarchyEndReached=fptHierarchy.fail();
+      // fptHierarchy>>intTimeHierarchy>>intSizeHierarchy>>std::ws;
+      // std::getline(fptHierarchy, strFileHierarchy);
+      // boHierarchyEndReached=fptHierarchy.fail();
+
+      boHierarchyEndReached=iHierarchy>=arrTree.size();
+      if(!boHierarchyEndReached){
+        //const auto [ strHashOld, intTimeOld, intSizeOld, strFileOld]=arrTree[iHierarchy];
+        RowTreeT r=arrTree[iHierarchy];
+        intTimeHierarchy=r.intTime; intSizeHierarchy=r.intSize; strFileHierarchy=r.strName;
+        iHierarchy++;
+      }
     }
     
     
@@ -264,9 +372,9 @@ int mergeOldNHierarchy(std::ofstream& fptNew, std::ifstream& fptOld, std::fstrea
       // Calculate hash
     if(myStatus>=TOUCHED ){
       if(boRealRun){
-
-        std::ifstream fpt(strFileHierarchy);
-        if(fpt.fail()) {  perror(strFileHierarchy.c_str());   return 1;  }
+        auto fsName=fsDir+"/"+strFileHierarchy;
+        std::ifstream fpt(fsName);
+        if(fpt.fail()) {  perror((fsName).c_str());   return 1;  }
         calcHashOfFile(fpt, *pstrHash);
 
         //fprintf(fptLog, "%s %10u %10u %s\n", "pstrHash", intTimeHierarchy, intSizeHierarchy, strFileHierarchy); 
@@ -362,13 +470,7 @@ returnType_getSuitableTimeUnit getSuitableTimeUnit(const int t){ // t in seconds
   return {tSign*tAbs, 'y'};
 }
 
-template<typename ... Args>
-char* mysprintf(const char* fmt, Args ... args){  // mysprintf: like snprintf but with fewer arguments.
-  const int L_STRTMP=300;
-  static char strTmp[L_STRTMP];
-  auto intL=snprintf(strTmp, L_STRTMP, fmt, args ...);
-  return strTmp;
-}
+
 
 
 
@@ -397,7 +499,7 @@ std::string check(const char* cstrFileHashOld, int intStart){  // Go through the
   std::string strMissingFile, strHighestFolderMissing;
   unsigned int nNotFoundLoc, iNotFoundFirst;
   int lenStrHighestFolderMissing;
-  char charMissing=' ';
+  char charMissingL=' ';
   
   while(1) {
     int nHour, nMin, nSec;
@@ -432,16 +534,16 @@ std::string check(const char* cstrFileHashOld, int intStart){  // Go through the
 
 
     //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    //if(strFile==".git/A/B.txt") __debugbreak;
+    //if(strFile=="0Downloads/0obs/Win_7_64Bit.iso") __debugbreak;
 
       // Check if one can bail to next ("continue") if we're in a known missing directory.
-    if(charMissing=='d'){
+    if(charMissingL=='d'){
       if(strHighestFolderMissing.compare(0, std::string::npos, strFile, 0, lenStrHighestFolderMissing)==0){
-        nNotFoundLoc++; nNotFound++; continue;
+        nNotFoundLoc++; nNotFound++; continue; 
       } else{ 
         if(nNotFoundLoc==1) printf(MY_RESET FMT_Check_Missing_File MAKESPACE_N_SAVE, iNotFoundFirst, strMissingFile.c_str());
         else printf(MY_RESET FMT_Check_Missing_Folder MAKESPACE_N_SAVE, iNotFoundFirst, iNotFoundFirst+nNotFoundLoc-1, nNotFoundLoc, strHighestFolderMissing.c_str());
-        strHighestFolderMissing=""; lenStrHighestFolderMissing=0; charMissing=' '; nNotFoundLoc=0;
+        strHighestFolderMissing=""; lenStrHighestFolderMissing=0; charMissingL=' '; nNotFoundLoc=0;
       }
     }
     
@@ -461,24 +563,25 @@ std::string check(const char* cstrFileHashOld, int intStart){  // Go through the
     if(!boFileFound) {
       auto strPar=dirname(strdup(strFile.c_str()));
       struct stat info;
-      char charMissingCur=stat( strPar, &info )==0 ?'f':'d';
-      if(charMissingCur=='f') {
-        if(charMissingCur!=charMissing) { // If first occurance
-          charMissing='f';  strMissingFile=strFile;
+      bool boParExist=stat( strPar, &info )==0;
+      char charMissing=boParExist ?'f':'d';
+      if(charMissing=='f') {
+        if(charMissing!=charMissingL) { // If first occurance
+          charMissingL='f';  strMissingFile=strFile;
           //strLabel=dirname(strdup(strMissingFile.c_str()));
           iNotFoundFirst=iRowCount;  nNotFoundLoc=0;
         }
         nNotFound++; nNotFoundLoc++;
-      }else{  // If charMissingCur=='d'
-        if(charMissing=='f'){ // If charMissing is switched (f to d).
+      }else{  // If charMissing=='d'
+        if(charMissingL=='f'){ // If charMissing is switching from f to d.
           if(nNotFoundLoc==1) printf(MY_RESET FMT_Check_Missing_File MAKESPACE_N_SAVE, iNotFoundFirst, strMissingFile.c_str());
           else {
             char* strTmp=strdup(strMissingFile.c_str());
             printf(MY_RESET FMT_Check_Missing_Files MAKESPACE_N_SAVE, iNotFoundFirst, iNotFoundFirst+nNotFoundLoc-1, nNotFoundLoc, dirname(strTmp));
           }
         }
-        if(charMissingCur!=charMissing) { // If first occurance
-          charMissing='d';  strMissingFile=strFile;
+        if(charMissing!=charMissingL) { // If first occurance
+          charMissingL='d';  strMissingFile=strFile;
           //strLabel=dirname(strdup(strMissingFile.c_str()));
           iNotFoundFirst=iRowCount;  nNotFoundLoc=0;
 
@@ -496,13 +599,13 @@ std::string check(const char* cstrFileHashOld, int intStart){  // Go through the
     }
     
       // If missing-streak ended
-    if(charMissing=='f'){ // If file was missing, and now things are found.
+    if(charMissingL=='f'){ // If file was missing, and now things are found.
       if(nNotFoundLoc==1) printf(MY_RESET FMT_Check_Missing_File MAKESPACE_N_SAVE, iNotFoundFirst, strMissingFile.c_str());
       else {
         char* strTmp=strdup(strMissingFile.c_str());
         printf(MY_RESET FMT_Check_Missing_Files MAKESPACE_N_SAVE, iNotFoundFirst, iNotFoundFirst+nNotFoundLoc-1, nNotFoundLoc, dirname(strTmp));
       }
-      charMissing=' '; nNotFoundLoc=0;
+      charMissingL=' '; nNotFoundLoc=0;
     }
 
       // Calculate hash
@@ -525,7 +628,7 @@ std::string check(const char* cstrFileHashOld, int intStart){  // Go through the
         } else{ 
           auto strTmp = mysprintf(MY_RESET ANSI_FONT_BOLD "Row:" ANSI_FONT_CLEAR "%u", iRowCount);
           StrTmp.push_back(strTmp);
-          StrTmp.push_back("META MISMATCH (run hashbert sync)");
+          StrTmp.push_back("META MISMATCH (\"hashbert sync\" should've been run before running \"hashbert check\")");
           int tDiff=st.st_mtim.tv_sec-intTimeOld;
           const auto [tDiffHuman, charUnit]=getSuitableTimeUnit(tDiff);
           if(!boTMatch) {
@@ -635,6 +738,10 @@ int main( int argc, char **argv){
   std::string strDir = input.getCmdOption("-d");  if(strDir.empty()) strDir=".";
   std::string strStart = input.getCmdOption("--start"); if(strStart.empty()) strStart="0";
   
+  //const auto [strErr, fsDir]=myRealPath(strDir.c_str());
+  const auto [strErr, fsDir]=myRealPath(strDir);
+  if(strErr.size()) { perror("Error in myRealPath"); exit(EXIT_FAILURE); } 
+
   int intStart = std::stoi(strStart);
   
 
@@ -648,8 +755,8 @@ int main( int argc, char **argv){
     int fd;
     int boDryRun = input.cmdOptionExists("-n"), boRealRun = !boDryRun;
     char strFileHierarchy[] = "/tmp/hashbert_tempfile";
-    std::fstream fptHierarchy(strFileHierarchy, std::ios::in|std::ios::out|std::ios::trunc);
-    if(fptHierarchy.fail()) { std::cerr<<strerror(errno)<<'\n'; }
+    //std::fstream fptHierarchy(strFileHierarchy, std::ios::in|std::ios::out|std::ios::trunc);
+    //if(fptHierarchy.fail()) { std::cerr<<strerror(errno)<<'\n'; }
 
     //FILE *fptHierarchy = fopen(strFileHierarchy, "w");
     //FILE *fptHierarchy=tmpfile();
@@ -662,16 +769,20 @@ int main( int argc, char **argv){
     
     if(!boRealRun){ printf("(Dry-run)\n"); }
     printf("Parsing file tree\n" ANSI_CURSOR_SAVE);  // then save cursor
-    writeFolderContentToHierarchyFile(fptHierarchy, strDir);
+    //writeFolderContentToHierarchyFile(fptHierarchy, strDir);
+    //writeFolderContentToHierarchyFile(fptHierarchy, fsDir, "");
+    std::vector<RowTreeT> arrTree(0);
+    parseTree(arrTree, fsDir, "");
     //FILE *fptOld = fopen(cstrFileHashOld, "a+");  // By using "a+" (reading and appending) the file is created if it doesn't exist.
     //FILE *fptNew = fopen(strFileHashNew.c_str(), "w");
     std::ifstream fptOld(cstrFileHashOld);
     std::ofstream fptNew(strFileHashNew);
     //rewind(fptHierarchy);
-    fptHierarchy.clear();  fptHierarchy.seekg(0);
+    //fptHierarchy.clear();  fptHierarchy.seekg(0);
     printf(ANSI_CURSOR_RESTORE ANSI_CURSOR_UP(1) ANSI_CLEAR_BELOW "Syncing hashcode file\n" ANSI_CURSOR_SAVE);
 
-    if(mergeOldNHierarchy(fptNew, fptOld, fptHierarchy, boRealRun)) {perror("Error in mergeOldNHierarchy"); return 1;}
+    //if(mergeOldNHierarchy(fptNew, fptOld, fptHierarchy, fsDir, boRealRun)) {perror("Error in mergeOldNHierarchy"); return 1;}
+    if(mergeOldNHierarchy(fptNew, fptOld, arrTree, fsDir, boRealRun)) {perror("Error in mergeOldNHierarchy"); return 1;}
     //fclose(fptHierarchy); fclose(fptOld); fclose(fptNew);
     
     if(boRealRun){

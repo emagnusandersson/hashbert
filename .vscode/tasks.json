@@ -1,45 +1,24 @@
 {
 	"version": "2.0.0",
 	"tasks": [
+		
 		{
 			"type": "cppbuild",
 			"label": "Build for gdb",
 			"command": "/usr/bin/g++",
 			"args": [
-				"-fdiagnostics-color=always",
+				//"-fdiagnostics-color=always",
 				"-g",
-				"${file}",
 				"-o",
-				"${fileDirname}/${fileBasenameNoExtension}",
+				"hashbert",
+				"${workspaceFolder}/hashbert.cc",
 				"-lcrypto",
-				"-std=gnu++17"
+				"-std=gnu++20"
 			],
+			//"${file}",
+			//"${fileDirname}/${fileBasenameNoExtension}",
 			"options": {
-				"cwd": "${fileDirname}"
-			},
-			"problemMatcher": [
-				"$gcc"
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"detail": "compiler: /usr/bin/g++"
-		},
-		{
-			"type": "cppbuild",
-			"label": "Build",
-			"command": "/usr/bin/g++",
-			"args": [
-				"${file}",
-				"-o",
-				"${fileDirname}/${fileBasenameNoExtension}",
-				"-lcrypto",
-				"-std=gnu++17",
-				"-O3"
-			],
-			"options": {
-				"cwd": "${fileDirname}"
+				"cwd": "${workspaceFolder}"
 			},
 			"problemMatcher": [
 				"$gcc"
@@ -50,5 +29,29 @@
 			},
 			"detail": "compiler: /usr/bin/g++"
 		}
+		// ,{
+		// 	"type": "cppbuild",
+		// 	"label": "Build",
+		// 	"command": "/usr/bin/g++",
+		// 	"args": [
+		// 		"${file}",
+		// 		"-o",
+		// 		"${fileDirname}/${fileBasenameNoExtension}",
+		// 		"-lcrypto",
+		// 		"-std=gnu++20",
+		// 		"-O3"
+		// 	],
+		// 	"options": {
+		// 		"cwd": "${fileDirname}"
+		// 	},
+		// 	"problemMatcher": [
+		// 		"$gcc"
+		// 	],
+		// 	"group": {
+		// 		"kind": "build",
+		// 		"isDefault": true
+		// 	},
+		// 	"detail": "compiler: /usr/bin/g++"
+		// }
 	]
 }
